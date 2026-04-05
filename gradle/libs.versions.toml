@@ -14,6 +14,7 @@ litertlm = "0.10.0"
 cameraX = "1.4.2"
 hilt = "2.57.2"
 hiltNavigation = "1.3.0"
+commonmark = "0.24.0"
 room = "2.7.1"
 ksp = "2.3.6"
 junit = "4.13.2"
@@ -44,6 +45,7 @@ camerax-view = { group = "androidx.camera", name = "camera-view", version.ref = 
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }
 hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", version.ref = "hiltNavigation" }
 hilt-android-compiler = { module = "com.google.dagger:hilt-android-compiler", version.ref = "hilt" }
+commonmark-core = { module = "org.commonmark:commonmark", version.ref = "commonmark" }
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }

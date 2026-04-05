@@ -67,6 +67,9 @@ dependencies {
     implementation(libs.camerax.lifecycle)
     implementation(libs.camerax.view)
 
+    // Markdown
+    implementation(libs.commonmark.core)
+
     // Room
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
