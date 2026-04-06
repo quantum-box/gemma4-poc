@@ -25,6 +25,17 @@ data class InferenceResult(
     val isDone: Boolean = false,
 )
 
+data class TokenStats(
+    val totalTokensUsed: Int = 0,
+    val maxTokens: Int = 0,
+    val lastPrefillTokens: Int = 0,
+    val lastDecodeTokens: Int = 0,
+    val prefillSpeed: Double = 0.0,
+    val decodeSpeed: Double = 0.0,
+) {
+    val usageRatio: Float get() = if (maxTokens > 0) totalTokensUsed.toFloat() / maxTokens else 0f
+}
+
 class GemmaEngine(private val context: Context) {
 
     private var engine: Engine? = null
@@ -32,8 +43,35 @@ class GemmaEngine(private val context: Context) {
     private var currentModelPath: String? = null
     private var currentTools: List<ToolProvider> = emptyList()
     private var currentBackend: Backend? = null
+    private var currentMaxTokens: Int = 4096
+    private var accumulatedTokens: Int = 0
 
     val isInitialized: Boolean get() = engine != null && conversation != null
+
+    fun getTokenStats(): TokenStats {
+        var prefillTokens = 0
+        var decodeTokens = 0
+        var prefillSpeed = 0.0
+        var decodeSpeed = 0.0
+        try {
+            val conv = conversation ?: return TokenStats(accumulatedTokens, currentMaxTokens)
+            val method = conv.javaClass.getMethod("getBenchmarkInfo")
+            val info = method.invoke(conv) ?: return TokenStats(accumulatedTokens, currentMaxTokens)
+            val infoClass = info.javaClass
+            prefillTokens = infoClass.getMethod("getLastPrefillTokenCount").invoke(info) as Int
+            decodeTokens = infoClass.getMethod("getLastDecodeTokenCount").invoke(info) as Int
+            prefillSpeed = infoClass.getMethod("getLastPrefillTokensPerSecond").invoke(info) as Double
+            decodeSpeed = infoClass.getMethod("getLastDecodeTokensPerSecond").invoke(info) as Double
+        } catch (_: Exception) {}
+        return TokenStats(
+            totalTokensUsed = accumulatedTokens,
+            maxTokens = currentMaxTokens,
+            lastPrefillTokens = prefillTokens,
+            lastDecodeTokens = decodeTokens,
+            prefillSpeed = prefillSpeed,
+            decodeSpeed = decodeSpeed,
+        )
+    }
 
     fun initialize(
         modelPath: String,
@@ -46,6 +84,7 @@ class GemmaEngine(private val context: Context) {
     ): String {
         currentModelPath = modelPath
         currentTools = tools
+        currentMaxTokens = maxTokens
 
         // GPU で試し、失敗したら CPU にフォールバック
         val backendsToTry = if (backend is Backend.GPU) {
@@ -142,6 +181,16 @@ class GemmaEngine(private val context: Context) {
                 }
 
                 override fun onDone() {
+                    try {
+                        val method = conv.javaClass.getMethod("getBenchmarkInfo")
+                        val info = method.invoke(conv)
+                        if (info != null) {
+                            val infoClass = info.javaClass
+                            val prefill = infoClass.getMethod("getLastPrefillTokenCount").invoke(info) as Int
+                            val decode = infoClass.getMethod("getLastDecodeTokenCount").invoke(info) as Int
+                            accumulatedTokens += prefill + decode
+                        }
+                    } catch (_: Exception) {}
                     onPartialResult(InferenceResult(text = "", isDone = true))
                 }
 
@@ -182,6 +231,7 @@ class GemmaEngine(private val context: Context) {
                 )
             )
             conversation = conv
+            accumulatedTokens = 0
             Log.i(TAG, "Conversation reset")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to reset conversation", e)

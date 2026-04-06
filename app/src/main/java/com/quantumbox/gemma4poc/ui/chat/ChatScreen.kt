@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,7 +21,9 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -119,6 +122,11 @@ fun ChatScreen(
                     .fillMaxSize()
                     .padding(paddingValues),
             ) {
+                // Token usage bar
+                if (uiState.tokenStats.totalTokensUsed > 0) {
+                    TokenUsageBar(uiState.tokenStats)
+                }
+
                 // Messages
                 LazyColumn(
                     modifier = Modifier
@@ -240,6 +248,53 @@ private fun SessionDrawerContent(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun TokenUsageBar(stats: com.quantumbox.gemma4poc.engine.TokenStats) {
+    val animatedProgress by animateFloatAsState(
+        targetValue = stats.usageRatio.coerceIn(0f, 1f),
+        label = "tokenProgress",
+    )
+    val color = when {
+        stats.usageRatio > 0.9f -> MaterialTheme.colorScheme.error
+        stats.usageRatio > 0.7f -> MaterialTheme.colorScheme.tertiary
+        else -> MaterialTheme.colorScheme.primary
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            LinearProgressIndicator(
+                progress = { animatedProgress },
+                modifier = Modifier
+                    .weight(1f)
+                    .height(6.dp),
+                color = color,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = "${stats.totalTokensUsed} / ${stats.maxTokens}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (stats.decodeSpeed > 0) {
+            Text(
+                text = "%.1f tok/s".format(stats.decodeSpeed),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            )
         }
     }
 }

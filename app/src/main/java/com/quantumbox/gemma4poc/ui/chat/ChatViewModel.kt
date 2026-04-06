@@ -7,6 +7,7 @@ import com.google.ai.edge.litertlm.tool
 import com.quantumbox.gemma4poc.data.db.SessionEntity
 import com.quantumbox.gemma4poc.data.db.SessionRepository
 import com.quantumbox.gemma4poc.engine.GemmaEngine
+import com.quantumbox.gemma4poc.engine.TokenStats
 import com.quantumbox.gemma4poc.tools.PocTools
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +36,7 @@ data class ChatUiState(
     val pendingAudioClips: List<ByteArray> = emptyList(),
     val currentSessionId: String? = null,
     val showSessionDrawer: Boolean = false,
+    val tokenStats: TokenStats = TokenStats(),
 )
 
 @HiltViewModel
@@ -109,6 +111,7 @@ class ChatViewModel @Inject constructor(
                 audioClips = audioClips,
                 onPartialResult = { result ->
                     if (result.isDone) {
+                        val stats = gemmaEngine.getTokenStats()
                         _uiState.update { state ->
                             state.copy(
                                 messages = state.messages.map { msg ->
@@ -116,6 +119,7 @@ class ChatViewModel @Inject constructor(
                                     else msg
                                 },
                                 isGenerating = false,
+                                tokenStats = stats,
                             )
                         }
                         // AI応答をDBに保存
