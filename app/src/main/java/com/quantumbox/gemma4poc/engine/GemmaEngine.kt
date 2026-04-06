@@ -43,7 +43,7 @@ class GemmaEngine(private val context: Context) {
     private var currentModelPath: String? = null
     private var currentTools: List<ToolProvider> = emptyList()
     private var currentBackend: Backend? = null
-    private var currentMaxTokens: Int = 4096
+    private var currentMaxTokens: Int = 32000
     private var accumulatedTokens: Int = 0
 
     val isInitialized: Boolean get() = engine != null && conversation != null
@@ -77,7 +77,7 @@ class GemmaEngine(private val context: Context) {
         modelPath: String,
         backend: Backend = Backend.CPU(),
         tools: List<ToolProvider> = emptyList(),
-        maxTokens: Int = 4096,
+        maxTokens: Int = 32000,
         topK: Int = 40,
         topP: Double = 0.95,
         temperature: Double = 0.8,
