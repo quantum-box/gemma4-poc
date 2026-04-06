@@ -105,63 +105,63 @@ class ChatViewModel @Inject constructor(
             var accumulatedText = ""
             var thinkingText: String? = null
 
-            gemmaEngine.sendMessage(
-                text = text,
-                images = images,
-                audioClips = audioClips,
-                onPartialResult = { result ->
-                    if (result.isDone) {
-                        val stats = gemmaEngine.getTokenStats()
-                        _uiState.update { state ->
-                            state.copy(
-                                messages = state.messages.map { msg ->
-                                    if (msg.id == aiMessageId) msg.copy(isStreaming = false)
-                                    else msg
-                                },
-                                isGenerating = false,
-                                tokenStats = stats,
-                            )
-                        }
-                        // AI応答をDBに保存
-                        viewModelScope.launch(Dispatchers.IO) {
-                            val finalMsg = _uiState.value.messages.find { it.id == aiMessageId }
-                            if (finalMsg != null) {
-                                val idx = _uiState.value.messages.indexOf(finalMsg)
-                                sessionRepository.saveMessage(sessionId, finalMsg, idx)
-                            }
-                        }
-                    } else {
-                        accumulatedText += result.text
-                        if (result.thinking != null) {
-                            thinkingText = (thinkingText ?: "") + result.thinking
-                        }
-                        _uiState.update { state ->
-                            state.copy(
-                                messages = state.messages.map { msg ->
-                                    if (msg.id == aiMessageId) {
-                                        msg.copy(
-                                            text = accumulatedText,
-                                            thinking = thinkingText,
-                                        )
-                                    } else msg
-                                },
-                            )
+            val onResult = { result: com.quantumbox.gemma4poc.engine.InferenceResult ->
+                if (result.isDone) {
+                    val stats = gemmaEngine.getTokenStats()
+                    _uiState.update { state ->
+                        state.copy(
+                            messages = state.messages.map { msg ->
+                                if (msg.id == aiMessageId) msg.copy(isStreaming = false)
+                                else msg
+                            },
+                            isGenerating = false,
+                            tokenStats = stats,
+                        )
+                    }
+                    viewModelScope.launch(Dispatchers.IO) {
+                        val finalMsg = _uiState.value.messages.find { it.id == aiMessageId }
+                        if (finalMsg != null) {
+                            val idx = _uiState.value.messages.indexOf(finalMsg)
+                            sessionRepository.saveMessage(sessionId, finalMsg, idx)
                         }
                     }
-                },
-                onError = { error ->
+                } else {
+                    accumulatedText += result.text
+                    if (result.thinking != null) {
+                        thinkingText = (thinkingText ?: "") + result.thinking
+                    }
                     _uiState.update { state ->
                         state.copy(
                             messages = state.messages.map { msg ->
                                 if (msg.id == aiMessageId) {
-                                    msg.copy(text = "Error: $error", isStreaming = false)
+                                    msg.copy(text = accumulatedText, thinking = thinkingText)
                                 } else msg
                             },
-                            isGenerating = false,
                         )
                     }
-                },
-            )
+                }
+                Unit
+            }
+
+            val onError = { error: String ->
+                _uiState.update { state ->
+                    state.copy(
+                        messages = state.messages.map { msg ->
+                            if (msg.id == aiMessageId) {
+                                msg.copy(text = "Error: $error", isStreaming = false)
+                            } else msg
+                        },
+                        isGenerating = false,
+                    )
+                }
+                Unit
+            }
+
+            if (gemmaEngine.isMockMode()) {
+                gemmaEngine.sendMessageMock(text, images, audioClips, onResult)
+            } else {
+                gemmaEngine.sendMessage(text, images, audioClips, onResult, onError)
+            }
         }
     }
 

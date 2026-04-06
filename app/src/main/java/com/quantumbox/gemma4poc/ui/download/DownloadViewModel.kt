@@ -36,7 +36,7 @@ class DownloadViewModel @Inject constructor(
     val uiState: StateFlow<DownloadUiState> = _uiState.asStateFlow()
 
     init {
-        if (downloadRepository.isModelDownloaded(model)) {
+        if (gemmaEngine.isMockMode() || downloadRepository.isModelDownloaded(model)) {
             initializeEngine()
         } else {
             observeDownload()

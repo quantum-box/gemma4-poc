@@ -46,9 +46,12 @@ class GemmaEngine(private val context: Context) {
     private var currentMaxTokens: Int = 32000
     private var accumulatedTokens: Int = 0
 
-    val isInitialized: Boolean get() = engine != null && conversation != null
+    fun isMockMode(): Boolean = MockGemmaEngine.isEmulator
+
+    val isInitialized: Boolean get() = isMockMode() || (engine != null && conversation != null)
 
     fun getTokenStats(): TokenStats {
+        if (isMockMode()) return MockGemmaEngine.getTokenStats(currentMaxTokens)
         var prefillTokens = 0
         var decodeTokens = 0
         var prefillSpeed = 0.0
@@ -85,6 +88,11 @@ class GemmaEngine(private val context: Context) {
         currentModelPath = modelPath
         currentTools = tools
         currentMaxTokens = maxTokens
+
+        if (isMockMode()) {
+            Log.i(TAG, "Mock mode: skipping real engine initialization")
+            return ""
+        }
 
         // GPU で試し、失敗したら CPU にフォールバック
         val backendsToTry = if (backend is Backend.GPU) {
@@ -143,6 +151,15 @@ class GemmaEngine(private val context: Context) {
             tools = currentTools,
         )
         return error.isEmpty()
+    }
+
+    suspend fun sendMessageMock(
+        text: String,
+        images: List<Bitmap> = emptyList(),
+        audioClips: List<ByteArray> = emptyList(),
+        onPartialResult: (InferenceResult) -> Unit,
+    ) {
+        MockGemmaEngine.simulateResponse(text, images, audioClips, onPartialResult)
     }
 
     fun sendMessage(
@@ -222,6 +239,10 @@ class GemmaEngine(private val context: Context) {
     }
 
     fun resetConversation(tools: List<ToolProvider> = emptyList()) {
+        if (isMockMode()) {
+            MockGemmaEngine.reset()
+            return
+        }
         try {
             conversation?.close()
             val conv = engine?.createConversation(
